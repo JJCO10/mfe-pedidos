@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Contrato · mfe-pedidos</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; background: #fafafa; }
+    h1 { font-size: 18px; }
+    .item { font-family: monospace; padding: 4px 0; }
+    .ok  { color: #1b7a3e; }
+    .mal { color: #c0392b; }
+    #montaje { margin-top: 16px; border-top: 1px solid #ddd; padding-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Prueba de contrato · mfe-pedidos</h1>
+  <div id="resultados"></div>
+
+  <h3>Salida del montaje</h3>
+  <div id="raiz-local"></div>
+
+  <script type="module">
+    import './pedidos.js';
+
+    const resultados = document.getElementById('resultados');
+    let eventosEstado = [];
+
+    function check(nombre, condicion) {
+      console.assert(condicion, nombre);
+      const div = document.createElement('div');
+      div.className = 'item ' + (condicion ? 'ok' : 'mal');
+      div.textContent = (condicion ? '✓ ' : '✗ ') + nombre;
+      resultados.appendChild(div);
+    }
+
+    // Helper: accede al texto del Shadow DOM del componente
+    function textoShadow(host) {
+      if (!host || !host.shadowRoot) return '';
+      return host.shadowRoot.textContent || '';
+    }
+
+    window.addEventListener('pedido:estado', (e) => eventosEstado.push(e.detail));
+
+    window.addEventListener('load', () => {
+      // 1. Funciones expuestas
+      check('window.renderPedidos es función',  typeof window.renderPedidos === 'function');
+      check('window.unmountPedidos es función', typeof window.unmountPedidos === 'function');
+
+      // 2. Montaje genera contenido (Lit es asíncrono, esperamos a que pinte)
+      window.renderPedidos('raiz-local');
+      const raiz = document.getElementById('raiz-local');
+
+      setTimeout(() => {
+        const el = raiz.querySelector('mfe-pedidos');
+        check('El montaje genera contenido', raiz.children.length > 0);
+        check('Existe <mfe-pedidos>', !!el);
+        check('Tiene Shadow DOM', !!(el && el.shadowRoot));
+        check('Contiene título "Seguimiento"',
+              textoShadow(el).includes('Seguimiento'));
+
+        // 3. Reacciona a pedido:confirmado
+        window.dispatchEvent(new CustomEvent('pedido:confirmado', {
+          detail: {
+            id: 7777,
+            items: [{ id: 1, nombre: 'Chivo guisado', precio: 28000, cantidad: 1 }],
+            total: 30800,
+            version: 1
+          }
+        }));
+
+        // Lit también es asíncrono al re-renderizar tras el evento
+        setTimeout(() => {
+          check('El pedido aparece en pantalla',
+                textoShadow(el).includes('7777'));
+
+          // 4. Esperar ~3.5 s al primer pedido:estado
+          setTimeout(() => {
+            check('Se emitió pedido:estado', eventosEstado.length > 0);
+            if (eventosEstado.length > 0) {
+              const e = eventosEstado[0];
+              check('detail.pedidoId es number', typeof e.pedidoId === 'number');
+              check('detail.estado es string',   typeof e.estado === 'string');
+              check('detail.version === 1',      e.version === 1);
+              check('estado === "En preparación"', e.estado === 'En preparación');
+            }
+          }, 3500);
+        }, 100);
+      }, 50);
+    });
+  </script>
+</body>
+</html>
