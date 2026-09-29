@@ -78,7 +78,7 @@ class MfePedidos extends LitElement {
 
   render() {
     return html`
-      <link rel="stylesheet" href="http://localhost:8081/tokens.css">
+      <link rel="stylesheet" href="https://design-tokens-saborupc.onrender.com/tokens.css">
       <h2>Seguimiento de pedidos</h2>
       <span class="version">mfe-pedidos v${VERSION} · Lit desde CDN</span>
 
