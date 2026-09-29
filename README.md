@@ -95,7 +95,8 @@ entrar a la ruta de seguimiento.
 ## 5. Cómo consumirlo desde el contenedor (single-spa)
 
 El contenedor carga el MFE con un `import()` dinámico cross-origin. Por eso
-el MFE **debe servirse con CORS habilitado** y con `Content-Type` correcto.
+el MFE **debe servirse con CORS habilitado** y con `Content-Type` correcto
+(ver sección 6).
 
 ### Import map recomendado
 
@@ -135,29 +136,30 @@ registerApplication({
 
 ## 6. CORS y `Content-Type`
 
-Render sirve los archivos estáticos, pero **no agrega headers CORS por
-defecto**. Para que single-spa pueda cargar el MFE desde otro origen
-(`http://localhost:9000`), el repo incluye un archivo **`_headers`** en la
-raíz del Publish Directory:
+Render **no agrega headers CORS por defecto**. Para que single-spa pueda
+cargar el MFE desde otro origen (`http://localhost:9000`), los headers
+están configurados **directamente en el servicio de Render** (dashboard →
+Static Site → **Headers**), no en un archivo del repo.
 
-```
-/*
-  Access-Control-Allow-Origin: *
+### Headers configurados en Render
 
-/*.js
-  Content-Type: text/javascript; charset=utf-8
+| Path     | Name                          | Value                              |
+|----------|-------------------------------|------------------------------------|
+| `/*`     | `Access-Control-Allow-Origin` | `*`                                |
+| `/*`     | `Access-Control-Allow-Methods`| `GET, HEAD, OPTIONS`               |
+| `/*.js`  | `Content-Type`                | `text/javascript; charset=utf-8`   |
+| `/*.html`| `Content-Type`                | `text/html; charset=utf-8`         |
+| `/*.css` | `Content-Type`                | `text/css; charset=utf-8`          |
 
-/*.html
-  Content-Type: text/html; charset=utf-8
-
-/*.css
-  Content-Type: text/css; charset=utf-8
-```
+> **Nota:** el archivo `_headers` (formato Netlify) fue eliminado porque
+> Render no lo interpretaba como reglas cuando el servicio se crea desde el
+> dashboard. La configuración de headers vive **en el propio servicio de
+> Render**, lo cual es más confiable y no depende del parser de archivos.
 
 ### Verificar que Render los está aplicando
 
 ```bash
-curl -I https://mfe-pedidos.onrender.com/pedidos.js
+curl -I "https://mfe-pedidos.onrender.com/pedidos.js?nocache=1"
 ```
 
 Debe incluir:
@@ -168,11 +170,15 @@ content-type: text/javascript; charset=utf-8
 access-control-allow-origin: *
 ```
 
-Si falta `access-control-allow-origin`, revisa que:
+Si falta `access-control-allow-origin`:
 
-1. `_headers` esté en la raíz del **Publish Directory** (no en la raíz del repo, si el Publish Directory es una subcarpeta).
-2. La sintaxis sea exacta: sin tabulaciones, sin comillas, con dos espacios de indentación y línea en blanco entre bloques.
-3. El deploy de Render haya terminado en estado **Live**.
+1. Revisa que los headers estén guardados en el dashboard de Render
+   (Static Site → **Headers**).
+2. Verifica que el deploy esté en estado **Live** (Events).
+3. Fuerza un redeploy con `git commit --allow-empty -m "redeploy" && git push`
+   o desde el dashboard (**Manual Deploy → Deploy latest commit**).
+4. Prueba con cache-buster (`?nocache=$(Get-Random)`) por si Cloudflare
+   está sirviendo una respuesta vieja.
 
 ---
 
@@ -189,7 +195,9 @@ como selector CSS:
 Si el archivo se sirviera como Latin-1, el string se corrompería a
 `'En preparaciÃ³n'` y ni el CSS ni la comparación funcionarían.
 
-El `_headers` fuerza `charset=utf-8` en la respuesta para evitarlo.
+El header `Content-Type: text/javascript; charset=utf-8` (configurado en
+Render, ver sección 6) fuerza al navegador a interpretar el archivo como
+UTF-8.
 
 ---
 
@@ -219,12 +227,14 @@ python -m http.server 8085
 
 ```
 mfe-pedidos/
-├── _headers          # CORS + Content-Type charset=utf-8 (Render)
 ├── pedidos.js        # El MFE (Lit 3 desde CDN, sin build)
 ├── index.html        # Modo independiente (botón "Simular pedido")
 ├── contrato.html     # Prueba de contrato automatizada
 └── README.md         # Este archivo
 ```
+
+> Los headers CORS y de `Content-Type` **no viven en el repo**: están
+> configurados en el servicio de Render (ver sección 6).
 
 ---
 
@@ -236,6 +246,14 @@ mfe-pedidos/
 
 No requiere `npm install` ni build. Lit se carga desde unpkg en tiempo de
 ejecución del navegador.
+
+### Configuración de headers
+
+Después de crear el Static Site, agregar en el dashboard:
+
+1. Entrar al servicio → sección **Headers**.
+2. Agregar las 5 reglas de la tabla de la sección 6.
+3. Guardar y esperar a que Render redeploye.
 
 ---
 
