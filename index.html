@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>mfe-pedidos (modo independiente)</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; background: #fafafa; }
+    .banda { background: #fff3c4; padding: 8px 12px; margin-bottom: 16px; font-size: 13px; }
+    .eventos { font-family: monospace; font-size: 12px; background: #fff; padding: 12px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="banda">
+    Modo independiente: simulamos el evento del carrito con este botón.
+    <button onclick="simular()">Simular pedido confirmado</button>
+  </div>
+
+  <div id="raiz-local"></div>
+
+  <h3>Eventos publicados</h3>
+  <div class="eventos" id="eventos"></div>
+
+  <script type="module">
+    import './pedidos.js';
+
+    window.simular = function () {
+      window.dispatchEvent(new CustomEvent('pedido:confirmado', {
+        detail: {
+          id: Date.now(),
+          items: [
+            { id: 1, nombre: 'Chivo guisado', precio: 28000, cantidad: 1 },
+            { id: 6, nombre: 'Jugo de corozo', precio: 5000, cantidad: 2 }
+          ],
+          total: 41800,
+          version: 1
+        }
+      }));
+    };
+
+    window.addEventListener('pedido:estado', function (e) {
+      const el = document.getElementById('eventos');
+      const p = document.createElement('div');
+      p.textContent = 'pedido:estado → ' + JSON.stringify(e.detail);
+      el.appendChild(p);
+    });
+
+    // Esperar a que el módulo cargue antes de renderizar
+    window.addEventListener('load', function () {
+      window.renderPedidos('raiz-local');
+    });
+  </script>
+</body>
+</html>
